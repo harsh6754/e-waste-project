@@ -6,28 +6,51 @@ import { NextResponse } from "next/server";
 connectDb();
 
 export async function POST(request) {
-    const{name,mobileNumber,password,confirmPassword} = await request.json();
+    try {
+        const { name, email, mobileNumber, password, confirmPassword } = await request.json();
 
-    const user = new Admin({
-        name,mobileNumber,password,confirmPassword
-    });
-
-    try{
-        user.password , user.confirmPassword = bcrypt.hashSync(
-            user.password, parseInt(process.env.BCRYPT_SALT)
-        );
-
-        const createdAdmin = await user.save();
-        const response = NextResponse.json(
-            user, {
-                status:201,
-                message: "Admin Created",
+        // Validate inputs
+        if (!name || !email || !mobileNumber || !password || !confirmPassword) {
+            return NextResponse.json({
+                message: "All fields are required",
+                status: false,
             });
+        }
+
+        if (password !== confirmPassword) {
+            return NextResponse.json({
+                message: "Password and confirmPassword do not match",
+                status: false,
+            });
+        }
+
+        // Hash the password
+        const hashedPassword = bcrypt.hashSync(password, parseInt(process.env.BCRYPT_SALT));
+
+        // Create a new Admin instance
+        const user = new Admin({
+            name,
+            email,
+            mobileNumber,
+            password: hashedPassword,
+            confirmPassword: hashedPassword, // It's not necessary to store hashed confirmPassword
+        });
+
+        // Save the user to the database
+        const createdAdmin = await user.save();
+
+        // Return success response
+        const response = NextResponse.json({
+            user: createdAdmin,
+            status: 201,
+            message: "Admin Created",
+        });
 
         return response;
     } catch (error) {
+        console.error("Error:", error);
         return NextResponse.json({
-            message: "failed to connect",
+            message: "Failed to connect",
             status: false,
         });
     }
